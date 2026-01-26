@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recon Explorer</title>
+<style>
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a25;--border:#2a2a3a;--accent:#00d4aa;--accent2:#00b894;--danger:#ff4757;--text:#e8e8e8;--text2:#888;--glow:0 0 20px rgba(0,212,170,0.3)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);padding:12px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.logo{display:flex;align-items:center;gap:10px}
+.logo h1{font-size:1.4em;font-weight:700;background:linear-gradient(135deg,var(--accent),#00f5d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo .icon{font-size:1.5em}
+.header-right{display:flex;align-items:center;gap:16px}
+.db-path{font-size:0.8em;color:var(--text2);font-family:monospace}
+.container{display:flex;height:calc(100vh - 57px)}
+.sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0}
+.sidebar h3{padding:0 16px 12px;font-size:0.75em;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2)}
+.table-item{padding:10px 16px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center}
+.table-item:hover{background:var(--surface2);border-left-color:var(--accent)}
+.table-item.active{background:var(--surface2);border-left-color:var(--accent)}
+.table-item .name{font-size:0.9em;font-weight:500}
+.table-item .count{font-size:0.75em;color:var(--text2);background:var(--bg);padding:2px 8px;border-radius:10px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.toolbar-left{display:flex;align-items:center;gap:12px}
+.toolbar h2{font-size:1.1em;font-weight:600}
+.toolbar .total{font-size:0.85em;color:var(--text2)}
+.toolbar-right{display:flex;align-items:center;gap:8px}
+.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:0.8em;font-weight:600;transition:all 0.2s}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--glow)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn.secondary:hover{border-color:var(--accent);color:var(--accent)}
+.table-wrap{flex:1;overflow:auto;padding:0}
+table{width:100%;border-collapse:collapse;font-size:0.85em}
+thead{position:sticky;top:0;z-index:1}
+th{background:var(--surface2);padding:10px 12px;text-align:left;font-weight:600;font-size:0.75em;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.8em}
+tr:hover td{background:var(--surface)}
+.pagination{padding:12px 20px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.pagination-info{font-size:0.85em;color:var(--text2)}
+.pagination-controls{display:flex;gap:8px;align-items:center}
+.pagination-controls button{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.8em}
+.pagination-controls button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pagination-controls button:disabled{opacity:0.4;cursor:not-allowed}
+.pagination-controls span{font-size:0.85em;color:var(--text2);min-width:80px;text-align:center}
+.empty{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;color:var(--text2);padding:40px}
+.empty .icon{font-size:3em;margin-bottom:16px;opacity:0.3}
+.empty h3{font-size:1.1em;margin-bottom:8px;color:var(--text)}
+.empty p{font-size:0.9em}
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;justify-content:center;align-items:center;z-index:2000}
+.login-overlay.hidden{display:none}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.login-box .icon{font-size:3em;margin-bottom:16px}
+.login-box h2{font-size:1.4em;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),#00f5d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-box p{color:var(--text2);font-size:0.85em;margin-bottom:20px}
+.login-box input{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1em;margin-bottom:12px}
+.login-box input:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)}
+.login-box .btn{width:100%;padding:12px;font-size:0.95em}
+.login-error{color:var(--danger);font-size:0.85em;margin-bottom:12px;display:none}
+.login-error.show{display:block}
+.loading{display:flex;justify-content:center;align-items:center;padding:40px;color:var(--text2)}
+.loading::after{content:'';width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cell-blob{color:var(--accent);font-style:italic}
+.cell-null{color:var(--text2);font-style:italic}
+@media(max-width:700px){.container{flex-direction:column}.sidebar{width:100%;min-width:auto;max-height:200px;border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <div class="icon">🔍</div>
+        <h2>Recon Explorer</h2>
+        <p>Enter root password to access database</p>
+        <div class="login-error" id="loginError"></div>
+        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+        <button class="btn" id="loginBtn" onclick="doLogin()">Login</button>
+    </div>
+</div>
+
+<div class="header">
+    <div class="logo">
+        <span class="icon">🔍</span>
+        <h1>Recon Explorer</h1>
+    </div>
+    <div class="header-right">
+        <span class="db-path">/root/recon/recon.db</span>
+    </div>
+</div>
+
+<div class="container">
+    <div class="sidebar">
+        <h3>Tables</h3>
+        <div id="tableList"></div>
+    </div>
+    <div class="main">
+        <div id="content">
+            <div class="empty">
+                <div class="icon">📊</div>
+                <h3>Select a table</h3>
+                <p>Choose a table from the sidebar to view its contents</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '/cgi-bin/api.sh';
+let currentTable = null;
+let currentOffset = 0;
+let currentLimit = 50;
+let currentTotal = 0;
+let authChallenge = null;
+
+// Stolen from nautilus 🫶🏻
+function sha256(s){
+  const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  function rr(n,x){return(x>>>n)|(x<<(32-n));}
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const b=new TextEncoder().encode(s);const l=b.length*8;
+  const ml=Math.ceil((l+65)/512)*64;const m=new Uint8Array(ml);
+  m.set(b);m[b.length]=0x80;const dv=new DataView(m.buffer);
+  dv.setUint32(ml-4,l,false);
+  for(let o=0;o<ml;o+=64){
+    const w=new Uint32Array(64);
+    for(let i=0;i<16;i++)w[i]=dv.getUint32(o+i*4,false);
+    for(let i=16;i<64;i++){
+      const s0=rr(7,w[i-15])^rr(18,w[i-15])^(w[i-15]>>>3);
+      const s1=rr(17,w[i-2])^rr(19,w[i-2])^(w[i-2]>>>10);
+      w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;
+    }
+    let[a,b,c,d,e,f,g,h]=H;
+    for(let i=0;i<64;i++){
+      const S1=rr(6,e)^rr(11,e)^rr(25,e);
+      const ch=(e&f)^((~e)&g);
+      const t1=(h+S1+ch+K[i]+w[i])>>>0;
+      const S0=rr(2,a)^rr(13,a)^rr(22,a);
+      const mj=(a&b)^(a&c)^(b&c);
+      const t2=(S0+mj)>>>0;
+      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+    }
+    H=[(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0];
+  }
+  return H.map(x=>x.toString(16).padStart(8,'0')).join('');
+}
+
+async function api(action, params = {}) {
+    const query = new URLSearchParams({ action, ...params });
+    const res = await fetch(`${API}?${query}`);
+    return res.json();
+}
+
+async function checkSession() {
+    const data = await api('check_session');
+    return data.authenticated === true;
+}
+
+async function doLogin() {
+    const pwd = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+    
+    if (!pwd) {
+        errEl.textContent = 'Please enter password';
+        errEl.classList.add('show');
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Authenticating...';
+    errEl.classList.remove('show');
+    
+    try {
+        // Get challenge
+        const challengeData = await api('challenge');
+        if (challengeData.error) throw new Error(challengeData.error);
+        
+        const challenge = challengeData.challenge;
+        
+        // Compute SHA-256 of challenge to get key
+        const keyHex = sha256(challenge);
+        const keyBytes = new Uint8Array(keyHex.match(/.{2}/g).map(b => parseInt(b, 16)));
+        
+        // Encrypt password with key
+        const encoder = new TextEncoder();
+        const pwdBytes = encoder.encode(pwd);
+        
+        const encrypted = new Uint8Array(pwdBytes.length);
+        for (let i = 0; i < pwdBytes.length; i++) {
+            encrypted[i] = pwdBytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+        
+        const encryptedB64 = btoa(String.fromCharCode(...encrypted));
+        
+        // Verify
+        const authData = await api('auth', { nonce: challenge, data: encryptedB64 });
+        
+        if (authData.success) {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            loadTables();
+        } else {
+            throw new Error(authData.error || 'Authentication failed');
+        }
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.add('show');
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Login';
+}
+
+async function loadTables() {
+    const listEl = document.getElementById('tableList');
+    listEl.innerHTML = '<div class="loading">Loading</div>';
+    
+    try {
+        const data = await api('tables');
+        if (data.error) {
+            listEl.innerHTML = `<div class="empty"><p>${data.error}</p></div>`;
+            return;
+        }
+        
+        listEl.innerHTML = data.tables.map(t => `
+            <div class="table-item" data-table="${t.name}" onclick="selectTable('${t.name}')">
+                <span class="name">${t.name}</span>
+                <span class="count">${t.count.toLocaleString()}</span>
+            </div>
+        `).join('');
+    } catch (e) {
+        listEl.innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`;
+    }
+}
+
+async function selectTable(name) {
+    // Update sidebar selection
+    document.querySelectorAll('.table-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.table === name);
+    });
+    
+    currentTable = name;
+    currentOffset = 0;
+    await loadTableData();
+}
+
+async function loadTableData() {
+    const contentEl = document.getElementById('content');
+    contentEl.innerHTML = '<div class="loading">Loading</div>';
+    
+    try {
+        const data = await api('query', {
+            table: currentTable,
+            limit: currentLimit,
+            offset: currentOffset
+        });
+        
+        if (data.error) {
+            contentEl.innerHTML = `<div class="empty"><p>${data.error}</p></div>`;
+            return;
+        }
+        
+        currentTotal = data.total;
+        
+        const currentPage = Math.floor(currentOffset / currentLimit) + 1;
+        const totalPages = Math.ceil(currentTotal / currentLimit);
+        const startRow = currentOffset + 1;
+        const endRow = Math.min(currentOffset + data.data.length, currentTotal);
+        
+        let html = `
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <h2>${currentTable}</h2>
+                    <span class="total">${currentTotal.toLocaleString()} rows</span>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn secondary" onclick="loadTableData()">Refresh</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+        `;
+        
+        if (data.data.length === 0) {
+            html += `
+                <div class="empty">
+                    <div class="icon">📭</div>
+                    <h3>No data</h3>
+                    <p>This table is empty</p>
+                </div>
+            `;
+        } else {
+            html += '<table><thead><tr>';
+            data.columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            data.data.forEach(row => {
+                html += '<tr>';
+                data.columns.forEach(col => {
+                    let val = row[col];
+                    if (val === null || val === undefined) {
+                        html += '<td><span class="cell-null">NULL</span></td>';
+                    } else if (typeof val === 'object') {
+                        html += '<td><span class="cell-blob">[BLOB]</span></td>';
+                    } else {
+                        // Escape HTML and truncate long values
+                        val = String(val);
+                        const escaped = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const display = escaped.length > 100 ? escaped.substring(0, 100) + '...' : escaped;
+                        html += `<td title="${escaped}">${display}</td>`;
+                    }
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+        }
+        
+        html += '</div>';
+        
+        // Pagination
+        html += `
+            <div class="pagination">
+                <div class="pagination-info">
+                    Showing ${startRow.toLocaleString()} - ${endRow.toLocaleString()} of ${currentTotal.toLocaleString()}
+                </div>
+                <div class="pagination-controls">
+                    <button onclick="goToPage(1)" ${currentPage <= 1 ? 'disabled' : ''}>First</button>
+                    <button onclick="prevPage()" ${currentPage <= 1 ? 'disabled' : ''}>Prev</button>
+                    <span>Page ${currentPage} of ${totalPages}</span>
+                    <button onclick="nextPage()" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
+                    <button onclick="goToPage(${totalPages})" ${currentPage >= totalPages ? 'disabled' : ''}>Last</button>
+                </div>
+            </div>
+        `;
+        
+        contentEl.innerHTML = html;
+    } catch (e) {
+        contentEl.innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`;
+    }
+}
+
+function prevPage() {
+    if (currentOffset >= currentLimit) {
+        currentOffset -= currentLimit;
+        loadTableData();
+    }
+}
+
+function nextPage() {
+    if (currentOffset + currentLimit < currentTotal) {
+        currentOffset += currentLimit;
+        loadTableData();
+    }
+}
+
+function goToPage(page) {
+    const totalPages = Math.ceil(currentTotal / currentLimit);
+    if (page >= 1 && page <= totalPages) {
+        currentOffset = (page - 1) * currentLimit;
+        loadTableData();
+    }
+}
+
+// Initialize
+document.getElementById('loginPassword').addEventListener('keypress', e => {
+    if (e.key === 'Enter') doLogin();
+});
+
+(async () => {
+    if (await checkSession()) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        loadTables();
+    }
+})();
+</script>
+</body>
+</html>
